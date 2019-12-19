@@ -5,27 +5,28 @@ import org.apache.spark.SparkConf;
 import scala.Tuple2;
 
 
-public class WordCount {
+public class MySparkJob {
   private static final int ROWS_OF_PARTITIONS = 500;
 
   /**
    * Find all lists of anagrams
    */
   public static void main(String[] args) {
-    SparkConf conf = new SparkConf().setAppName("Word Count");
+    SparkConf conf = new SparkConf().setAppName("anagram");
     JavaSparkContext sc = new JavaSparkContext(conf);
-    JavaRDD<String> lines = sc.textFile("file:///Users/kejiang/Developer/maildir/allen-p/*/*"); //("hdfs://localhost:9000/hdfs/*/*");
+    JavaRDD<String> lines = sc.textFile(args[0]);
 
     JavaPairRDD<String, Iterable<String>> anagramGroups = lines.flatMap(
-        line -> Arrays.asList(line.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]+", "").split("\\s+")).iterator())
+        line -> Arrays.asList(line.toLowerCase().replaceAll("[^a-zA-Z\\s]+", "").split("\\s+")).iterator())
         .distinct()
         .mapToPair(word -> new Tuple2<>(getSortedForm(word), word))
         .groupByKey()
         .filter(group -> Iterables.size(group._2) > 1);
-    int numOfFiles = (int) (anagramGroups.count()/ROWS_OF_PARTITIONS);
-    anagramGroups = anagramGroups.coalesce(numOfFiles);
+//    int numOfFiles = (int) (anagramGroups.count()/ROWS_OF_PARTITIONS);
+//    anagramGroups = anagramGroups.coalesce(numOfFiles == 0 ? 1 : numOfFiles);
 
-    anagramGroups.saveAsTextFile("file:///Users/kejiang/Developer/WordCount/anagram-" + System.currentTimeMillis() + "/");
+    String outputPath = "gs://bessie_cloud_bucket-1/spark/anagram-" + System.currentTimeMillis() + "/";
+    anagramGroups.saveAsTextFile("file:///Users/kejiang/Developer/WordCount/output/");
 
     sc.stop();
   }
@@ -40,21 +41,21 @@ public class WordCount {
    * Find all palindromes and sort by appearing times
    */
 //  public static void main(String[] args) {
-//    SparkConf conf = new SparkConf().setAppName("Word Count");
+//    SparkConf conf = new SparkConf().setAppName("palindrome");
 //    JavaSparkContext sc = new JavaSparkContext(conf);
-//    JavaRDD<String> lines = sc.textFile("hdfs://localhost:9000/hdfs/*/*");
+//    JavaRDD<String> lines = sc.textFile(args[0]);
 //
-//    JavaPairRDD<Integer, String> palindromeCounts = lines.flatMap(
-//        line -> Arrays.asList(line.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]+", "").split("\\s+")).iterator())
+//    JavaPairRDD<String, Integer> palindromeCounts = lines.flatMap(
+//        line -> Arrays.asList(line.toLowerCase().replaceAll("[^a-zA-Z\\s]+", "").split("\\s+")).iterator())
 //        .filter(word -> isPalindrome(word))
 //        .mapToPair(word -> new Tuple2<>(word, 1))
-//        .reduceByKey((x, y) -> x + y)
-//        .mapToPair(p -> p.swap()) //swap key and value, so that we can use sortByKey to rank the words that appear the most.
-//        .sortByKey(false);
+//        .reduceByKey((x, y) -> x + y);
 //
 //    int numOfFiles = (int) (palindromeCounts.count()/ROWS_OF_PARTITIONS);
-//    palindromeCounts = palindromeCounts.coalesce(numOfFiles);
-//    palindromeCounts.saveAsTextFile("/spark/palindrome-" + System.currentTimeMillis() + "/");
+//    palindromeCounts = palindromeCounts.coalesce(numOfFiles == 0 ? 1 : numOfFiles);
+//
+//    String outputPath = "gs://bessie_cloud_bucket-1/spark/palindrome-" + System.currentTimeMillis() + "/";
+//    palindromeCounts.saveAsTextFile(outputPath);
 //
 //    sc.stop();
 //  }
